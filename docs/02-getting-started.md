@@ -316,20 +316,69 @@ dotnet run --urls "http://localhost:8080"
 
 ### With Claude Desktop
 
-1. **Edit Claude configuration**
+Claude Desktop supports two integration modes. Choose the one that fits your setup.
+
+#### Option A: HTTP Transport via `mcp-proxy` (recommended for local server)
+
+Use this when the Mud MCP server is already running locally (HTTP transport). `mcp-proxy` bridges Claude Desktop to the HTTP endpoint.
+
+1. **Install `uv`** (if not already installed)
+
+   Open PowerShell and run:
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+2. **Install `mcp-proxy`** via `uv` (if not already installed)
+
+   ```powershell
+   uv tool install mcp-proxy --system-certs
+   ```
+
+   The `--system-certs` flag ensures your corporate or self-signed certificates are trusted during installation.
+
+3. **Edit Claude Desktop configuration**
 
    Location: `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
-   
+
+   Add the following entry inside `"mcpServers"`:
    ```json
    {
      "mcpServers": {
-       "mudblazor": {
-         "command": "dotnet",
-         "args": ["run", "--project", "C:\\path\\to\\MudBlazor.Mcp\\src\\MudBlazor.Mcp", "--", "--stdio"]
+       "mud-mcp": {
+         "command": "mcp-proxy",
+         "args": ["--transport", "streamablehttp", "--no-verify-ssl", "https://localhost:8000/mcp"]
        }
      }
    }
    ```
+
+   > **Note:** `--no-verify-ssl` skips TLS certificate validation for `localhost`. This is safe for local development but should not be used against remote servers.
+
+4. **Restart Claude Desktop**
+
+5. **Start chatting** about MudBlazor components
+
+#### Option B: stdio Transport via `dotnet run`
+
+Use this when you want Claude Desktop to launch the server process itself using the stdio transport. No separate server process or `mcp-proxy` is required.
+
+1. **Edit Claude Desktop configuration**
+
+   Location: `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+
+   ```json
+   {
+     "mcpServers": {
+       "mud-mcp": {
+         "command": "dotnet",
+         "args": ["run", "--project", "C:\\path\\to\\MudBlazor.Mcp\\src\\MudBlazor.Mcp", "--", "--stdio", "--version", "9.0.0"]
+       }
+     }
+   }
+   ```
+
+   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository, and replace `9.0.0` with your project's MudBlazor package version.
 
 2. **Restart Claude Desktop**
 
