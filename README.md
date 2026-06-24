@@ -109,6 +109,8 @@ The `--version` argument is **required** and must match your project's MudBlazor
 dotnet run --project src/MudBlazor.Mcp/MudBlazor.Mcp.csproj -- --version 9.0.0
 ```
 
+This startup version is the **default** used by all tools. You can optionally override it per request by passing a `version` argument to any MCP tool call (for example, `get_component_detail` with `"version": "8.13.0"`).
+
 The server will:
 1. Clone the MudBlazor repository and checkout the matching tag (`v9.0.0`)
 2. Parse all components using Roslyn and build an index
@@ -251,7 +253,7 @@ data/
     index.json
 ```
 
-When a 4th version is requested, the least recently used version is evicted automatically. This means you can work on multiple projects with different MudBlazor versions — each project gets its own `.mcp.json` with the right `--version`, and they share the cached clones.
+When a 4th version is requested, the least recently used version is evicted automatically. This means you can work on multiple projects with different MudBlazor versions, and you can also switch versions per tool call by passing the optional `version` argument.
 
 ---
 

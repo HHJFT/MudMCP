@@ -95,8 +95,10 @@ The default transport mode starts an HTTP server:
 
 ```bash
 cd src/MudBlazor.Mcp
-dotnet run
+dotnet run -- --version 9.0.0
 ```
+
+The `--version` value is required and should match your project's MudBlazor package version. This becomes the default version for tool calls.
 
 **What happens on first startup:**
 1. The MudBlazor repository is cloned from GitHub (~1-2 minutes)
@@ -123,7 +125,7 @@ For CLI-based MCP clients (like Claude Desktop):
 
 ```bash
 cd src/MudBlazor.Mcp
-dotnet run -- --stdio
+dotnet run -- --stdio --version 9.0.0
 ```
 
 In stdio mode:
@@ -211,11 +213,15 @@ curl -X POST http://localhost:8000/mcp \
     "method": "tools/call",
     "params": {
       "name": "list_categories",
-      "arguments": {}
+      "arguments": {
+        "version": "8.13.0"
+      }
     },
     "id": 2
   }'
 ```
+
+The `version` argument is optional. Omit it to use the server startup version.
 
 **Expected response:**
 ```json

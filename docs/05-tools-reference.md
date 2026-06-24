@@ -45,6 +45,16 @@ All tools use `snake_case` naming as per MCP conventions:
 - `list_components` ✓
 - `getComponentDetail` ✗
 
+### Version Selection
+
+All 12 tools accept an optional `version` argument (for example, `"version": "8.13.0"`).
+
+- If omitted, the server uses the startup default from `--version` or `MUDBLAZOR_VERSION`.
+- If provided, the call is routed to that specific MudBlazor version.
+- Version format must be `X.Y.Z` or prerelease (for example, `9.0.0-preview.1`).
+
+Parameter tables below focus on tool-specific arguments and do not repeat this shared `version` argument each time.
+
 ---
 
 ## Component Discovery Tools
