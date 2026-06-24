@@ -19,8 +19,6 @@ public sealed class ComponentExampleTools
     /// <summary>
     /// Gets code examples for a MudBlazor component.
     /// </summary>
-    [McpServerTool(Name = "get_component_examples")]
-    [Description("Gets code examples for a specific MudBlazor component, showing how to use it in different scenarios. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> GetComponentExamplesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
@@ -28,10 +26,26 @@ public sealed class ComponentExampleTools
         string componentName,
         int? maxExamples = null,
         string? filter = null,
-        CancellationToken cancellationToken = default)
-        => GetComponentExamplesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, maxExamples, filter, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetComponentExamplesCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, maxExamples, filter, cancellationToken, version);
 
-    public static async Task<string> GetComponentExamplesAsync(
+    [McpServerTool(Name = "get_component_examples")]
+    [Description("Gets code examples for a specific MudBlazor component, showing how to use it in different scenarios. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> GetComponentExamplesAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        int? maxExamples = null,
+        string? filter = null,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetComponentExamplesCoreAsync(registry, logger, versionContext, componentName, maxExamples, filter, cancellationToken, version);
+
+    private static async Task<string> GetComponentExamplesCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentExampleTools> logger,
         VersionContext versionContext,
@@ -156,18 +170,31 @@ public sealed class ComponentExampleTools
     /// <summary>
     /// Gets a specific example by name.
     /// </summary>
-    [McpServerTool(Name = "get_example_by_name")]
-    [Description("Gets a specific code example by its name from a MudBlazor component. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> GetExampleByNameAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
         VersionContext versionContext,
         string componentName,
         string exampleName,
-        CancellationToken cancellationToken = default)
-        => GetExampleByNameAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, exampleName, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetExampleByNameCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, exampleName, cancellationToken, version);
 
-    public static async Task<string> GetExampleByNameAsync(
+    [McpServerTool(Name = "get_example_by_name")]
+    [Description("Gets a specific code example by its name from a MudBlazor component. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> GetExampleByNameAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        string exampleName,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetExampleByNameCoreAsync(registry, logger, versionContext, componentName, exampleName, cancellationToken, version);
+
+    private static async Task<string> GetExampleByNameCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentExampleTools> logger,
         VersionContext versionContext,
@@ -265,17 +292,29 @@ public sealed class ComponentExampleTools
     /// <summary>
     /// Lists all example names for a component.
     /// </summary>
-    [McpServerTool(Name = "list_component_examples")]
-    [Description("Lists all available example names for a MudBlazor component without the full code. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> ListComponentExamplesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentExampleTools> logger,
         VersionContext versionContext,
         string componentName,
-        CancellationToken cancellationToken = default)
-        => ListComponentExamplesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListComponentExamplesCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, cancellationToken, version);
 
-    public static async Task<string> ListComponentExamplesAsync(
+    [McpServerTool(Name = "list_component_examples")]
+    [Description("Lists all available example names for a MudBlazor component without the full code. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> ListComponentExamplesAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentExampleTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListComponentExamplesCoreAsync(registry, logger, versionContext, componentName, cancellationToken, version);
+
+    private static async Task<string> ListComponentExamplesCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentExampleTools> logger,
         VersionContext versionContext,

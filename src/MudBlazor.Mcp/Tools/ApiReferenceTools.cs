@@ -21,18 +21,31 @@ public sealed class ApiReferenceTools
     /// <summary>
     /// Gets the API reference for a MudBlazor type.
     /// </summary>
-    [McpServerTool(Name = "get_api_reference")]
-    [Description("Gets the full API reference for a MudBlazor component or type, including all properties, methods, and events. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> GetApiReferenceAsync(
         IComponentIndexer indexer,
         ILogger<ApiReferenceTools> logger,
         VersionContext versionContext,
         string typeName,
         string? memberType = null,
-        CancellationToken cancellationToken = default)
-        => GetApiReferenceAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, typeName, memberType, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetApiReferenceCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, typeName, memberType, cancellationToken, version);
 
-    public static async Task<string> GetApiReferenceAsync(
+    [McpServerTool(Name = "get_api_reference")]
+    [Description("Gets the full API reference for a MudBlazor component or type, including all properties, methods, and events. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> GetApiReferenceAsync(
+        IIndexerRegistry registry,
+        ILogger<ApiReferenceTools> logger,
+        VersionContext versionContext,
+        string typeName,
+        string? memberType = null,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetApiReferenceCoreAsync(registry, logger, versionContext, typeName, memberType, cancellationToken, version);
+
+    private static async Task<string> GetApiReferenceCoreAsync(
         IIndexerRegistry registry,
         ILogger<ApiReferenceTools> logger,
         VersionContext versionContext,

@@ -26,18 +26,31 @@ public sealed class ComponentListTools
     /// <param name="includeDetails">Whether to include parameter counts and descriptions.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Formatted list of components.</returns>
-    [McpServerTool(Name = "list_components")]
-    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> ListComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,
         string? category = null,
         bool? includeDetails = null,
-        CancellationToken cancellationToken = default)
-        => ListComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, includeDetails, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, includeDetails, cancellationToken, version);
 
-    public static async Task<string> ListComponentsAsync(
+    [McpServerTool(Name = "list_components")]
+    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> ListComponentsAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
+        string? category = null,
+        bool? includeDetails = null,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListComponentsCoreAsync(registry, logger, versionContext, category, includeDetails, cancellationToken, version);
+
+    private static async Task<string> ListComponentsCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,
@@ -126,16 +139,27 @@ public sealed class ComponentListTools
     /// <summary>
     /// Lists all component categories with their descriptions and component counts.
     /// </summary>
-    [McpServerTool(Name = "list_categories")]
-    [Description("Lists all MudBlazor component categories with descriptions and component counts. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> ListCategoriesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,
-        CancellationToken cancellationToken = default)
-        => ListCategoriesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListCategoriesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, cancellationToken, version);
 
-    public static async Task<string> ListCategoriesAsync(
+    [McpServerTool(Name = "list_categories")]
+    [Description("Lists all MudBlazor component categories with descriptions and component counts. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> ListCategoriesAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => ListCategoriesCoreAsync(registry, logger, versionContext, cancellationToken, version);
+
+    private static async Task<string> ListCategoriesCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,

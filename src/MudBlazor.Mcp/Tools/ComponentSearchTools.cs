@@ -22,8 +22,6 @@ public sealed class ComponentSearchTools
     /// <summary>
     /// Searches for MudBlazor components by query.
     /// </summary>
-    [McpServerTool(Name = "search_components")]
-    [Description("Searches MudBlazor components by name, description, or parameters. Returns components matching the query. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> SearchComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
@@ -31,10 +29,26 @@ public sealed class ComponentSearchTools
         string query,
         string? searchIn = null,
         int? maxResults = null,
-        CancellationToken cancellationToken = default)
-        => SearchComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, query, searchIn, maxResults, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => SearchComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, query, searchIn, maxResults, cancellationToken, version);
 
-    public static async Task<string> SearchComponentsAsync(
+    [McpServerTool(Name = "search_components")]
+    [Description("Searches MudBlazor components by name, description, or parameters. Returns components matching the query. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> SearchComponentsAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
+        string query,
+        string? searchIn = null,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => SearchComponentsCoreAsync(registry, logger, versionContext, query, searchIn, maxResults, cancellationToken, version);
+
+    private static async Task<string> SearchComponentsCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentSearchTools> logger,
         VersionContext versionContext,
@@ -121,17 +135,29 @@ public sealed class ComponentSearchTools
     /// <summary>
     /// Gets all components in a specific category.
     /// </summary>
-    [McpServerTool(Name = "get_components_by_category")]
-    [Description("Gets all MudBlazor components in a specific category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> GetComponentsByCategoryAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
         VersionContext versionContext,
         string category,
-        CancellationToken cancellationToken = default)
-        => GetComponentsByCategoryAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetComponentsByCategoryAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, cancellationToken, version);
 
-    public static async Task<string> GetComponentsByCategoryAsync(
+    [McpServerTool(Name = "get_components_by_category")]
+    [Description("Gets all MudBlazor components in a specific category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> GetComponentsByCategoryAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
+        string category,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetComponentsByCategoryCoreAsync(registry, logger, versionContext, category, cancellationToken, version);
+
+    private static async Task<string> GetComponentsByCategoryCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentSearchTools> logger,
         VersionContext versionContext,
@@ -207,18 +233,31 @@ public sealed class ComponentSearchTools
     /// <summary>
     /// Gets components related to a specific component.
     /// </summary>
-    [McpServerTool(Name = "get_related_components")]
-    [Description("Gets MudBlazor components related to a specific component through inheritance, category, or common usage. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
     public static Task<string> GetRelatedComponentsAsync(
         IComponentIndexer indexer,
         ILogger<ComponentSearchTools> logger,
         VersionContext versionContext,
         string componentName,
         string? relationshipType = null,
-        CancellationToken cancellationToken = default)
-        => GetRelatedComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, relationshipType, cancellationToken, null);
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetRelatedComponentsCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, relationshipType, cancellationToken, version);
 
-    public static async Task<string> GetRelatedComponentsAsync(
+    [McpServerTool(Name = "get_related_components")]
+    [Description("Gets MudBlazor components related to a specific component through inheritance, category, or common usage. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    public static Task<string> GetRelatedComponentsAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentSearchTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        string? relationshipType = null,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
+        => GetRelatedComponentsCoreAsync(registry, logger, versionContext, componentName, relationshipType, cancellationToken, version);
+
+    private static async Task<string> GetRelatedComponentsCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentSearchTools> logger,
         VersionContext versionContext,
