@@ -137,6 +137,45 @@ curl http://localhost:8000/health
 }
 ```
 
+### HTTP tool call examples (with version)
+
+When calling `/mcp` directly over HTTP, initialize once and reuse the returned `Mcp-Session-Id` header.
+
+```bash
+# 1) Initialize and capture the Mcp-Session-Id response header
+curl -i -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+
+# 2) Mark session initialized (replace <SESSION_ID>)
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+```
+
+Use startup default version (from `--version`):
+
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton"}}}'
+```
+
+Override per request with explicit version:
+
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton","version":"9.0.0"}}}'
+```
+
 ---
 
 ## Local MCP (stdio — no frontend required)

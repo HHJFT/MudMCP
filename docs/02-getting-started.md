@@ -180,9 +180,28 @@ curl http://localhost:8000/health
 
 ### 2. List Available Tools
 
+If your client requires MCP sessions (streamable HTTP), initialize once and reuse the `Mcp-Session-Id` header:
+
+```bash
+# Initialize (inspect response headers for Mcp-Session-Id)
+curl -i -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+
+# Send initialized notification (replace <SESSION_ID>)
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+```
+
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
   -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
 ```
 
@@ -205,9 +224,31 @@ curl -X POST http://localhost:8000/mcp \
 
 ### 3. Test a Tool
 
+Use startup default version (from `--version`):
+
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "list_categories",
+      "arguments": {}
+    },
+    "id": 2
+  }'
+```
+
+Override version per request:
+
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <SESSION_ID>" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -221,7 +262,7 @@ curl -X POST http://localhost:8000/mcp \
   }'
 ```
 
-The `version` argument is optional. Omit it to use the server startup version.
+The `version` argument is optional on all tools. Omit it to use the server startup version.
 
 **Expected response:**
 ```json
