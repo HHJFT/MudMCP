@@ -352,6 +352,18 @@ dotnet run --urls "http://localhost:8080"
    }
    ```
 
+   To set a default version in HTTP mode from client configuration, include it in the URL:
+
+   ```json
+   {
+     "servers": {
+       "mudblazor": {
+         "url": "http://localhost:8000/mcp?version=9.0.0"
+       }
+     }
+   }
+   ```
+
 2. **Start the Mud MCP server** (if not already running)
 
 3. **Ask Copilot about MudBlazor**

@@ -219,6 +219,7 @@ static void RegisterCoreServices(IServiceCollection services, IConfiguration con
             logger: sp.GetRequiredService<ILogger<VersionCacheManager>>()));
 
     services.AddMemoryCache();
+    services.AddHttpContextAccessor();
 
     services.AddSingleton<IIndexerRegistry, IndexerRegistry>();
     services.AddSingleton<IVersionedIndexerFactory, VersionedIndexerFactory>();

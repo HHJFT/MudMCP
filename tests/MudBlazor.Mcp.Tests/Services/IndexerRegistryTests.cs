@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
 
 using Moq;
+using Microsoft.AspNetCore.Http;
 using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
@@ -63,5 +64,45 @@ public class IndexerRegistryTests
 
         Assert.Equal("8.13.0", resolved.VersionContext.Version);
         factory.Verify(x => x.Create(It.Is<VersionContext>(c => c.Version == "8.13.0")), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UsesHttpQueryVersion_WhenExplicitVersionIsNull()
+    {
+        var factory = new Mock<IVersionedIndexerFactory>();
+        var indexer = new Mock<IComponentIndexer>();
+        indexer.Setup(x => x.BuildIndexAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        factory.Setup(x => x.Create(It.IsAny<VersionContext>())).Returns(indexer.Object);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.QueryString = new QueryString("?version=8.13.0");
+        var accessor = new HttpContextAccessor { HttpContext = httpContext };
+
+        var registry = new IndexerRegistry(factory.Object, new VersionContext("9.0.0", "/tmp/data"), accessor);
+
+        var resolved = await registry.ResolveAsync(null, CancellationToken.None);
+
+        Assert.Equal("8.13.0", resolved.VersionContext.Version);
+        factory.Verify(x => x.Create(It.Is<VersionContext>(c => c.Version == "8.13.0")), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ExplicitVersion_TakesPrecedenceOverHttpQueryVersion()
+    {
+        var factory = new Mock<IVersionedIndexerFactory>();
+        var indexer = new Mock<IComponentIndexer>();
+        indexer.Setup(x => x.BuildIndexAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        factory.Setup(x => x.Create(It.IsAny<VersionContext>())).Returns(indexer.Object);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.QueryString = new QueryString("?version=8.13.0");
+        var accessor = new HttpContextAccessor { HttpContext = httpContext };
+
+        var registry = new IndexerRegistry(factory.Object, new VersionContext("9.0.0", "/tmp/data"), accessor);
+
+        var resolved = await registry.ResolveAsync("9.0.0", CancellationToken.None);
+
+        Assert.Equal("9.0.0", resolved.VersionContext.Version);
+        factory.Verify(x => x.Create(It.Is<VersionContext>(c => c.Version == "9.0.0")), Times.Once);
     }
 }

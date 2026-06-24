@@ -25,6 +25,9 @@ Mud MCP supports two transport mechanisms:
 
 The HTTP URL shown here is the local `dotnet run` default. IIS deployments use the protocol resolved during deployment: `auto` selects HTTPS when a certificate thumbprint or existing HTTPS IIS binding is available, and otherwise uses HTTP.
 
+To set a default MudBlazor version for HTTP clients without changing every tool call, append a query parameter:
+`http://localhost:8000/mcp?version=9.0.0`
+
 ---
 
 ## VS Code with GitHub Copilot

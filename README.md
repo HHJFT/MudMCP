@@ -137,6 +137,19 @@ curl http://localhost:8000/health
 }
 ```
 
+If you want a fixed default version from client config, include it in the URL:
+
+```json
+{
+  "servers": {
+    "mudblazor": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp?version=9.0.0"
+    }
+  }
+}
+```
+
 ### HTTP tool call examples (with version)
 
 When calling `/mcp` directly over HTTP, initialize once and reuse the returned `Mcp-Session-Id` header.
@@ -271,7 +284,7 @@ docker compose down -v
   "servers": {
     "mudblazor": {
       "type": "http",
-      "url": "http://localhost:8000/mcp"
+      "url": "http://localhost:8000/mcp?version=9.0.0"
     }
   }
 }

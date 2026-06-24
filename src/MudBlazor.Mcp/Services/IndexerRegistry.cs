@@ -2,6 +2,7 @@
 // Licensed under the GNU General Public License v2.0. See LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Http;
 using MudBlazor.Mcp.Configuration;
 
 namespace MudBlazor.Mcp.Services;
@@ -10,12 +11,17 @@ public sealed class IndexerRegistry : IIndexerRegistry
 {
     private readonly IVersionedIndexerFactory _factory;
     private readonly VersionContext _defaultVersionContext;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
     private readonly ConcurrentDictionary<string, Lazy<Task<ResolvedIndexer>>> _indexers = new(StringComparer.OrdinalIgnoreCase);
 
-    public IndexerRegistry(IVersionedIndexerFactory factory, VersionContext defaultVersionContext)
+    public IndexerRegistry(
+        IVersionedIndexerFactory factory,
+        VersionContext defaultVersionContext,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _factory = factory;
         _defaultVersionContext = defaultVersionContext;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public string DefaultVersion => _defaultVersionContext.Version;
@@ -24,9 +30,20 @@ public sealed class IndexerRegistry : IIndexerRegistry
 
     public async Task<ResolvedIndexer> ResolveAsync(string? version, CancellationToken cancellationToken = default)
     {
-        var effectiveVersion = VersionValidation.ResolveVersion(version, DefaultVersion);
+        var effectiveVersion = VersionValidation.ResolveVersion(GetRequestedVersion(version), DefaultVersion);
         var lazy = _indexers.GetOrAdd(effectiveVersion, version => new Lazy<Task<ResolvedIndexer>>(() => BuildAsync(version), LazyThreadSafetyMode.ExecutionAndPublication));
         return await lazy.Value.ConfigureAwait(false);
+    }
+
+    private string? GetRequestedVersion(string? explicitVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(explicitVersion))
+        {
+            return explicitVersion;
+        }
+
+        var queryVersion = _httpContextAccessor?.HttpContext?.Request.Query["version"].FirstOrDefault();
+        return string.IsNullOrWhiteSpace(queryVersion) ? null : queryVersion;
     }
 
     private Task<ResolvedIndexer> BuildAsync(string version)
