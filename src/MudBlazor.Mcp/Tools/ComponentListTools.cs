@@ -28,16 +28,32 @@ public sealed class ComponentListTools
     /// <returns>Formatted list of components.</returns>
     [McpServerTool(Name = "list_components")]
     [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
-    public static async Task<string> ListComponentsAsync(
+    public static Task<string> ListComponentsAsync(
         IComponentIndexer indexer,
+        ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
+        string? category = null,
+        bool? includeDetails = null,
+        CancellationToken cancellationToken = default)
+        => ListComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, includeDetails, cancellationToken, null);
+
+    public static async Task<string> ListComponentsAsync(
+        IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,
         [Description("Optional category to filter by (e.g., 'Buttons', 'Form Inputs', 'Navigation')")] 
         string? category = null,
         [Description("Include parameter counts and brief descriptions (default: true)")]
         bool? includeDetails = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
+        ToolValidation.RequireValidVersion(version, nameof(version));
+        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        var indexer = resolved.Indexer;
+        var responseVersionContext = resolved.VersionContext;
+
         // Apply default value if not provided (MCP clients may send null for optional parameters)
         var effectiveIncludeDetails = includeDetails ?? true;
 
@@ -67,7 +83,7 @@ public sealed class ComponentListTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# MudBlazor Components v{versionContext.Version} ({components.Count} total)");
+        sb.AppendLine($"# MudBlazor Components v{responseVersionContext.Version} ({components.Count} total)");
         sb.AppendLine();
 
         if (category is not null)
@@ -112,12 +128,26 @@ public sealed class ComponentListTools
     /// </summary>
     [McpServerTool(Name = "list_categories")]
     [Description("Lists all MudBlazor component categories with descriptions and component counts. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
-    public static async Task<string> ListCategoriesAsync(
+    public static Task<string> ListCategoriesAsync(
         IComponentIndexer indexer,
         ILogger<ComponentListTools> logger,
         VersionContext versionContext,
         CancellationToken cancellationToken = default)
+        => ListCategoriesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, cancellationToken, null);
+
+    public static async Task<string> ListCategoriesAsync(
+        IIndexerRegistry registry,
+        ILogger<ComponentListTools> logger,
+        VersionContext versionContext,
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
+        ToolValidation.RequireValidVersion(version, nameof(version));
+        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        var indexer = resolved.Indexer;
+        var responseVersionContext = resolved.VersionContext;
+
         logger.LogDebug("Listing all component categories");
 
         if (!indexer.IsIndexed)
@@ -133,7 +163,7 @@ public sealed class ComponentListTools
             categories.Count, allComponents.Count);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# MudBlazor Component Categories (v{versionContext.Version})");
+        sb.AppendLine($"# MudBlazor Component Categories (v{responseVersionContext.Version})");
         sb.AppendLine();
 
         foreach (var category in categories)

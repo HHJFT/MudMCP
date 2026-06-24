@@ -23,17 +23,32 @@ public sealed class ApiReferenceTools
     /// </summary>
     [McpServerTool(Name = "get_api_reference")]
     [Description("Gets the full API reference for a MudBlazor component or type, including all properties, methods, and events. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
-    public static async Task<string> GetApiReferenceAsync(
+    public static Task<string> GetApiReferenceAsync(
         IComponentIndexer indexer,
+        ILogger<ApiReferenceTools> logger,
+        VersionContext versionContext,
+        string typeName,
+        string? memberType = null,
+        CancellationToken cancellationToken = default)
+        => GetApiReferenceAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, typeName, memberType, cancellationToken, null);
+
+    public static async Task<string> GetApiReferenceAsync(
+        IIndexerRegistry registry,
         ILogger<ApiReferenceTools> logger,
         VersionContext versionContext,
         [Description("The type name (e.g., 'MudButton', 'Color', 'Size')")]
         string typeName,
         [Description("Filter to specific member type: 'all', 'properties', 'methods', 'events' (default: 'all')")]
         string? memberType = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
         ToolValidation.RequireNonEmpty(typeName, nameof(typeName));
+        ToolValidation.RequireValidVersion(version, nameof(version));
+        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        var indexer = resolved.Indexer;
+        var responseVersionContext = resolved.VersionContext;
 
         // Apply default value if not provided (MCP clients may send null for optional parameters)
         var effectiveMemberType = memberType ?? "all";
@@ -54,7 +69,7 @@ public sealed class ApiReferenceTools
             typeName, apiRef.Members?.Count ?? 0);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {apiRef.TypeName} API Reference (v{versionContext.Version})");
+        sb.AppendLine($"# {apiRef.TypeName} API Reference (v{responseVersionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"**Namespace:** `{apiRef.Namespace}`");
         
@@ -166,9 +181,12 @@ public sealed class ApiReferenceTools
         VersionContext versionContext,
         [Description("The enum name (e.g., 'Color', 'Size', 'Variant', 'Align')")]
         string enumName,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
         ToolValidation.RequireNonEmpty(enumName, nameof(enumName));
+        ToolValidation.RequireValidVersion(version, nameof(version));
 
         logger.LogDebug("Getting enum values for: {EnumName}", enumName);
 
@@ -184,7 +202,8 @@ public sealed class ApiReferenceTools
         logger.LogDebug("Found {Count} values for enum {EnumName}", enumValues.Count, enumName);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {enumName} Enum Values (v{versionContext.Version})");
+        var effectiveVersion = VersionValidation.ResolveVersion(version, versionContext.Version);
+        sb.AppendLine($"# {enumName} Enum Values (v{effectiveVersion})");
         sb.AppendLine();
         sb.AppendLine("| Value | Description |");
         sb.AppendLine("|-------|-------------|");

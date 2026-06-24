@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using ModelContextProtocol;
+using MudBlazor.Mcp.Configuration;
 
 namespace MudBlazor.Mcp.Tools;
 
@@ -71,6 +72,26 @@ internal static class ToolValidation
         if (!allowedValues.Contains(value, StringComparer.OrdinalIgnoreCase))
         {
             throw new McpException($"Parameter '{parameterName}' must be one of: {string.Join(", ", allowedValues)}. Got: '{value}'");
+        }
+    }
+
+    /// <summary>
+    /// Validates that a version string is in the supported MudBlazor format.
+    /// </summary>
+    public static void RequireValidVersion(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        try
+        {
+            VersionValidation.NormalizeVersion(value);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new McpException(ex.Message);
         }
     }
 

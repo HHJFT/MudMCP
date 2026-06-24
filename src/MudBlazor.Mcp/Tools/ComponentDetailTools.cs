@@ -22,8 +22,18 @@ public sealed class ComponentDetailTools
     /// </summary>
     [McpServerTool(Name = "get_component_detail")]
     [Description("Gets comprehensive details about a specific MudBlazor component including parameters, events, methods, and usage information. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
-    public static async Task<string> GetComponentDetailAsync(
+    public static Task<string> GetComponentDetailAsync(
         IComponentIndexer indexer,
+        ILogger<ComponentDetailTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        bool? includeInheritedMembers = null,
+        bool? includeExamples = null,
+        CancellationToken cancellationToken = default)
+        => GetComponentDetailAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, includeInheritedMembers, includeExamples, cancellationToken, null);
+
+    public static async Task<string> GetComponentDetailAsync(
+        IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
         VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
@@ -32,9 +42,15 @@ public sealed class ComponentDetailTools
         bool? includeInheritedMembers = null,
         [Description("Include code examples (default: true)")]
         bool? includeExamples = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
         ToolValidation.RequireNonEmpty(componentName, nameof(componentName));
+        ToolValidation.RequireValidVersion(version, nameof(version));
+        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        var indexer = resolved.Indexer;
+        var responseVersionContext = resolved.VersionContext;
 
         // Apply default values if not provided (MCP clients may send null for optional parameters)
         var effectiveIncludeInherited = includeInheritedMembers ?? false;
@@ -57,7 +73,7 @@ public sealed class ComponentDetailTools
         var sb = new StringBuilder();
         
         // Header
-        sb.AppendLine($"# {component.Name} (v{versionContext.Version})");
+        sb.AppendLine($"# {component.Name} (v{responseVersionContext.Version})");
         sb.AppendLine();
         sb.AppendLine($"**Namespace:** `{component.Namespace}`");
         
@@ -220,17 +236,32 @@ public sealed class ComponentDetailTools
     /// </summary>
     [McpServerTool(Name = "get_component_parameters")]
     [Description("Gets all parameters for a specific MudBlazor component, optionally filtered by category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
-    public static async Task<string> GetComponentParametersAsync(
+    public static Task<string> GetComponentParametersAsync(
         IComponentIndexer indexer,
+        ILogger<ComponentDetailTools> logger,
+        VersionContext versionContext,
+        string componentName,
+        string? parameterCategory = null,
+        CancellationToken cancellationToken = default)
+        => GetComponentParametersAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, parameterCategory, cancellationToken, null);
+
+    public static async Task<string> GetComponentParametersAsync(
+        IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
         VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Optional parameter category filter (e.g., 'Behavior', 'Appearance')")]
         string? parameterCategory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
+        string? version = null)
     {
         ToolValidation.RequireNonEmpty(componentName, nameof(componentName));
+        ToolValidation.RequireValidVersion(version, nameof(version));
+        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        var indexer = resolved.Indexer;
+        var responseVersionContext = resolved.VersionContext;
 
         logger.LogDebug("Getting parameters for component: {ComponentName}, category filter: {Category}",
             componentName, parameterCategory ?? "none");
@@ -256,7 +287,7 @@ public sealed class ComponentDetailTools
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine($"# {component.Name} Parameters (v{versionContext.Version})");
+        sb.AppendLine($"# {component.Name} Parameters (v{responseVersionContext.Version})");
         sb.AppendLine();
 
         // Group by category if available

@@ -84,7 +84,7 @@ if (string.IsNullOrWhiteSpace(mudBlazorVersion))
     return 1;
 }
 
-if (!System.Text.RegularExpressions.Regex.IsMatch(mudBlazorVersion, @"^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"))
+if (!VersionValidation.IsValidVersion(mudBlazorVersion))
 {
     Console.Error.WriteLine($"Error: '{mudBlazorVersion}' is not a valid version. Expected format: X.Y.Z or X.Y.Z-prerelease (e.g., 9.0.0 or 9.0.0-preview.1)");
     return 1;
@@ -220,10 +220,8 @@ static void RegisterCoreServices(IServiceCollection services, IConfiguration con
 
     services.AddMemoryCache();
 
-    services.AddSingleton<IGitRepositoryService, GitRepositoryService>();
-    services.AddSingleton<IDocumentationCache, DocumentationCache>();
-    services.AddSingleton<IComponentIndexer, ComponentIndexer>();
-
+    services.AddSingleton<IIndexerRegistry, IndexerRegistry>();
+    services.AddSingleton<IVersionedIndexerFactory, VersionedIndexerFactory>();
     services.AddSingleton<XmlDocParser>();
     services.AddSingleton<RazorDocParser>();
     services.AddSingleton<ExampleExtractor>();
@@ -232,15 +230,15 @@ static void RegisterCoreServices(IServiceCollection services, IConfiguration con
 
 static async Task BuildIndexAsync(IServiceProvider services)
 {
-    var indexer = services.GetRequiredService<IComponentIndexer>();
+    var registry = services.GetRequiredService<IIndexerRegistry>();
     var logger = services.GetRequiredService<ILogger<Program>>();
 
     try
     {
         logger.LogInformation("Building MudBlazor component index...");
-        await indexer.BuildIndexAsync();
+        var resolved = await registry.ResolveAsync(null);
         logger.LogInformation("Index built successfully with {ComponentCount} components",
-            (await indexer.GetAllComponentsAsync()).Count);
+            (await resolved.Indexer.GetAllComponentsAsync()).Count);
     }
     catch (Exception ex)
     {
@@ -277,12 +275,12 @@ static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
 /// <summary>Health check for the component indexer with detailed status.</summary>
 public class IndexerHealthCheck : IHealthCheck
 {
-    private readonly IComponentIndexer _indexer;
+    private readonly IIndexerRegistry _registry;
     private readonly ILogger<IndexerHealthCheck> _logger;
 
-    public IndexerHealthCheck(IComponentIndexer indexer, ILogger<IndexerHealthCheck> logger)
+    public IndexerHealthCheck(IIndexerRegistry registry, ILogger<IndexerHealthCheck> logger)
     {
-        _indexer = indexer;
+        _registry = registry;
         _logger = logger;
     }
 
@@ -292,7 +290,10 @@ public class IndexerHealthCheck : IHealthCheck
     {
         try
         {
-            if (!_indexer.IsIndexed)
+            var resolved = await _registry.ResolveAsync(null, cancellationToken);
+            var indexer = resolved.Indexer;
+
+            if (!indexer.IsIndexed)
             {
                 _logger.LogDebug("Indexer health check: Index not yet built");
                 return HealthCheckResult.Degraded(
@@ -301,12 +302,13 @@ public class IndexerHealthCheck : IHealthCheck
                     {
                         ["status"] = "building",
                         ["componentCount"] = 0,
-                        ["isIndexed"] = false
+                        ["isIndexed"] = false,
+                        ["loadedVersions"] = _registry.LoadedVersions.ToArray()
                     });
             }
 
-            var components = await _indexer.GetAllComponentsAsync(cancellationToken);
-            var categories = await _indexer.GetCategoriesAsync(cancellationToken);
+            var components = await indexer.GetAllComponentsAsync(cancellationToken);
+            var categories = await indexer.GetCategoriesAsync(cancellationToken);
 
             if (components.Count == 0)
             {
@@ -319,7 +321,8 @@ public class IndexerHealthCheck : IHealthCheck
                         ["componentCount"] = 0,
                         ["categoryCount"] = categories.Count,
                         ["isIndexed"] = true,
-                        ["lastIndexed"] = _indexer.LastIndexed?.ToString("O") ?? "never"
+                        ["lastIndexed"] = indexer.LastIndexed?.ToString("O") ?? "never",
+                        ["loadedVersions"] = _registry.LoadedVersions.ToArray()
                     });
             }
 
@@ -332,7 +335,8 @@ public class IndexerHealthCheck : IHealthCheck
                     ["componentCount"] = components.Count,
                     ["categoryCount"] = categories.Count,
                     ["isIndexed"] = true,
-                    ["lastIndexed"] = _indexer.LastIndexed?.ToString("O") ?? "never"
+                    ["lastIndexed"] = indexer.LastIndexed?.ToString("O") ?? "never",
+                    ["loadedVersions"] = _registry.LoadedVersions.ToArray()
                 });
         }
         catch (Exception ex)
