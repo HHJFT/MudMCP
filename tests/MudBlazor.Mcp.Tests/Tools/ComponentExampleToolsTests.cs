@@ -3,7 +3,6 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Models;
 using MudBlazor.Mcp.Services;
 using MudBlazor.Mcp.Tools;
@@ -15,8 +14,6 @@ public class ComponentExampleToolsTests
     private static readonly ILogger<ComponentExampleTools> NullLogger =
         NullLoggerFactory.Instance.CreateLogger<ComponentExampleTools>();
 
-    private static readonly VersionContext _versionContext = new("9.0.0");
-
     #region GetComponentExamplesAsync Tests
 
     [Fact]
@@ -27,7 +24,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.GetComponentExamplesAsync(
-            indexer, NullLogger, _versionContext, "MudButton", 5, null, CancellationToken.None);
+            indexer, NullLogger, "MudButton", 5, null, CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -43,7 +40,7 @@ public class ComponentExampleToolsTests
 
         // Act - simulating what happens when MCP client doesn't send maxExamples
         var result = await ComponentExampleTools.GetComponentExamplesAsync(
-            indexer, NullLogger, _versionContext, "MudButton", null, null, CancellationToken.None);
+            indexer, NullLogger, "MudButton", null, null, CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -58,7 +55,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.GetComponentExamplesAsync(
-            indexer, NullLogger, _versionContext, "MudButton", 5, "icon", CancellationToken.None);
+            indexer, NullLogger, "MudButton", 5, "icon", CancellationToken.None);
 
         // Assert
         Assert.Contains("Icon Button", result);
@@ -73,7 +70,7 @@ public class ComponentExampleToolsTests
         // Act & Assert
         await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetComponentExamplesAsync(
-                indexer.Object, NullLogger, _versionContext, "", 5, null, CancellationToken.None));
+                new StubIndexerRegistry(indexer.Object), NullLogger, "", 5, null, CancellationToken.None));
     }
 
     [Fact]
@@ -85,7 +82,7 @@ public class ComponentExampleToolsTests
         // Act & Assert
         await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetComponentExamplesAsync(
-                indexer.Object, NullLogger, _versionContext, null!, 5, null, CancellationToken.None));
+                new StubIndexerRegistry(indexer.Object), NullLogger, null!, 5, null, CancellationToken.None));
     }
 
     [Fact]
@@ -99,7 +96,7 @@ public class ComponentExampleToolsTests
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetComponentExamplesAsync(
-                indexer.Object, NullLogger, _versionContext, "Unknown", 5, null, CancellationToken.None));
+                new StubIndexerRegistry(indexer.Object), NullLogger, "Unknown", 5, null, CancellationToken.None));
 
         Assert.Contains("not found", ex.Message);
         Assert.Contains("list_components", ex.Message);
@@ -114,7 +111,7 @@ public class ComponentExampleToolsTests
         // Act & Assert - maxExamples = 0 is out of range (min is 1)
         await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetComponentExamplesAsync(
-                indexer, NullLogger, _versionContext, "MudButton", 0, null, CancellationToken.None));
+                indexer, NullLogger, "MudButton", 0, null, CancellationToken.None));
     }
 
     [Fact]
@@ -126,7 +123,7 @@ public class ComponentExampleToolsTests
         // Act & Assert - maxExamples = 100 is out of range (max is 20)
         await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetComponentExamplesAsync(
-                indexer, NullLogger, _versionContext, "MudButton", 100, null, CancellationToken.None));
+                indexer, NullLogger, "MudButton", 100, null, CancellationToken.None));
     }
 
     #endregion
@@ -141,7 +138,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.GetExampleByNameAsync(
-            indexer, NullLogger, _versionContext, "MudButton", "Basic Button", CancellationToken.None);
+            indexer, NullLogger, "MudButton", "Basic Button", CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -157,7 +154,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.GetExampleByNameAsync(
-            indexer, NullLogger, _versionContext, "MudButton", "Basic", CancellationToken.None);
+            indexer, NullLogger, "MudButton", "Basic", CancellationToken.None);
 
         // Assert
         Assert.Contains("Basic Button", result);
@@ -172,7 +169,7 @@ public class ComponentExampleToolsTests
         // Act & Assert
         var ex = await Assert.ThrowsAsync<ModelContextProtocol.McpException>(async () =>
             await ComponentExampleTools.GetExampleByNameAsync(
-                indexer, NullLogger, _versionContext, "MudButton", "NonExistent", CancellationToken.None));
+                indexer, NullLogger, "MudButton", "NonExistent", CancellationToken.None));
 
         Assert.Contains("not found", ex.Message);
     }
@@ -189,7 +186,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.ListComponentExamplesAsync(
-            indexer, NullLogger, _versionContext, "MudButton", CancellationToken.None);
+            indexer, NullLogger, "MudButton", CancellationToken.None);
 
         // Assert
         Assert.Contains("MudButton", result);
@@ -223,7 +220,7 @@ public class ComponentExampleToolsTests
 
         // Act
         var result = await ComponentExampleTools.ListComponentExamplesAsync(
-            indexer.Object, NullLogger, _versionContext, "MudEmpty", CancellationToken.None);
+            new StubIndexerRegistry(indexer.Object), NullLogger, "MudEmpty", CancellationToken.None);
 
         // Assert
         Assert.Contains("No examples available", result);
@@ -233,7 +230,7 @@ public class ComponentExampleToolsTests
 
     #region Helper Methods
 
-    private static IComponentIndexer CreateMockIndexerWithExamples()
+    private static IIndexerRegistry CreateMockIndexerWithExamples()
     {
         var indexer = new Mock<IComponentIndexer>();
 
@@ -288,7 +285,7 @@ public class ComponentExampleToolsTests
         indexer.Setup(x => x.GetComponentAsync("Button", It.IsAny<CancellationToken>()))
             .ReturnsAsync(component);
 
-        return indexer.Object;
+        return new StubIndexerRegistry(indexer.Object);
     }
 
     #endregion
