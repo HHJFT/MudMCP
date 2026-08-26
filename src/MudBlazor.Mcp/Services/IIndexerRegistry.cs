@@ -12,4 +12,27 @@ public interface IIndexerRegistry
     Task<ResolvedIndexer> ResolveAsync(string? version, CancellationToken cancellationToken = default);
 }
 
-public sealed record ResolvedIndexer(IComponentIndexer Indexer, VersionContext VersionContext);
+public sealed class ResolvedIndexer : IAsyncDisposable
+{
+    private Func<ValueTask>? _release;
+
+    public ResolvedIndexer(
+        IComponentIndexer indexer,
+        VersionContext versionContext,
+        Func<ValueTask>? release = null)
+    {
+        Indexer = indexer;
+        VersionContext = versionContext;
+        _release = release;
+    }
+
+    public IComponentIndexer Indexer { get; }
+
+    public VersionContext VersionContext { get; }
+
+    public ValueTask DisposeAsync()
+    {
+        var release = Interlocked.Exchange(ref _release, null);
+        return release is null ? ValueTask.CompletedTask : release();
+    }
+}
