@@ -4,6 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using ModelContextProtocol;
 using MudBlazor.Mcp.Configuration;
+using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
 
@@ -92,6 +93,28 @@ internal static class ToolValidation
         catch (ArgumentException ex)
         {
             throw new McpException(ex.Message);
+        }
+    }
+
+    public static async Task<ResolvedIndexer> ResolveIndexerAsync(
+        IIndexerRegistry registry,
+        string? version,
+        CancellationToken cancellationToken)
+    {
+        RequireValidVersion(version, nameof(version));
+
+        try
+        {
+            return await registry.ResolveAsync(version, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ArgumentException ex) when (ex.ParamName == "version")
+        {
+            throw new McpException(ex.Message);
+        }
+        catch (MudBlazorVersionUnavailableException ex)
+        {
+            throw new McpException(
+                $"MudBlazor version '{ex.Version}' is unavailable. Check published tags at https://github.com/MudBlazor/MudBlazor/tags.");
         }
     }
 

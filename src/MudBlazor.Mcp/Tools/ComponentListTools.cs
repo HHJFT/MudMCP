@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 
 namespace MudBlazor.Mcp.Tools;
@@ -17,43 +16,23 @@ namespace MudBlazor.Mcp.Tools;
 [McpServerToolType]
 public sealed class ComponentListTools
 {
-    /// <summary>
-    /// Lists all available MudBlazor components with their categories.
-    /// </summary>
-    /// <param name="indexer">The component indexer service.</param>
-    /// <param name="logger">Logger for diagnostics.</param>
-    /// <param name="category">Optional category to filter by.</param>
-    /// <param name="includeDetails">Whether to include parameter counts and descriptions.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Formatted list of components.</returns>
-    public static Task<string> ListComponentsAsync(
-        IComponentIndexer indexer,
-        ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
-        string? category = null,
-        bool? includeDetails = null,
-        CancellationToken cancellationToken = default,
-        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
-        string? version = null)
-        => ListComponentsAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, category, includeDetails, cancellationToken, version);
-
     [McpServerTool(Name = "list_components")]
-    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    [Description("Lists all available MudBlazor components. Optionally filter by category and include additional details. Results use the selected MudBlazor version. Set version to the MudBlazor PackageReference from the project's .csproj, or omit it to use the server default.")]
     public static Task<string> ListComponentsAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
+        [Description("Optional category to filter by (e.g., 'Buttons', 'Form Inputs', 'Navigation')")]
         string? category = null,
+        [Description("Include parameter counts and brief descriptions (default: true)")]
         bool? includeDetails = null,
         CancellationToken cancellationToken = default,
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
-        => ListComponentsCoreAsync(registry, logger, versionContext, category, includeDetails, cancellationToken, version);
+        => ListComponentsCoreAsync(registry, logger, category, includeDetails, cancellationToken, version);
 
     private static async Task<string> ListComponentsCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
         [Description("Optional category to filter by (e.g., 'Buttons', 'Form Inputs', 'Navigation')")] 
         string? category = null,
         [Description("Include parameter counts and brief descriptions (default: true)")]
@@ -62,8 +41,7 @@ public sealed class ComponentListTools
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
     {
-        ToolValidation.RequireValidVersion(version, nameof(version));
-        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        await using var resolved = await ToolValidation.ResolveIndexerAsync(registry, version, cancellationToken);
         var indexer = resolved.Indexer;
         var responseVersionContext = resolved.VersionContext;
 
@@ -136,39 +114,24 @@ public sealed class ComponentListTools
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Lists all component categories with their descriptions and component counts.
-    /// </summary>
-    public static Task<string> ListCategoriesAsync(
-        IComponentIndexer indexer,
-        ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
-        CancellationToken cancellationToken = default,
-        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
-        string? version = null)
-        => ListCategoriesAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, cancellationToken, version);
-
     [McpServerTool(Name = "list_categories")]
-    [Description("Lists all MudBlazor component categories with descriptions and component counts. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    [Description("Lists all MudBlazor component categories with descriptions and component counts. Results use the selected MudBlazor version. Set version to the MudBlazor PackageReference from the project's .csproj, or omit it to use the server default.")]
     public static Task<string> ListCategoriesAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
         CancellationToken cancellationToken = default,
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
-        => ListCategoriesCoreAsync(registry, logger, versionContext, cancellationToken, version);
+        => ListCategoriesCoreAsync(registry, logger, cancellationToken, version);
 
     private static async Task<string> ListCategoriesCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentListTools> logger,
-        VersionContext versionContext,
         CancellationToken cancellationToken = default,
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
     {
-        ToolValidation.RequireValidVersion(version, nameof(version));
-        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        await using var resolved = await ToolValidation.ResolveIndexerAsync(registry, version, cancellationToken);
         var indexer = resolved.Indexer;
         var responseVersionContext = resolved.VersionContext;
 
