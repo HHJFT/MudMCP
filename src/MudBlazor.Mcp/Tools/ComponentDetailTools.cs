@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Models;
 using MudBlazor.Mcp.Services;
 
@@ -17,39 +16,25 @@ namespace MudBlazor.Mcp.Tools;
 [McpServerToolType]
 public sealed class ComponentDetailTools
 {
-    /// <summary>
-    /// Gets detailed information about a specific MudBlazor component.
-    /// </summary>
-    public static Task<string> GetComponentDetailAsync(
-        IComponentIndexer indexer,
-        ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
-        string componentName,
-        bool? includeInheritedMembers = null,
-        bool? includeExamples = null,
-        CancellationToken cancellationToken = default,
-        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
-        string? version = null)
-        => GetComponentDetailCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, includeInheritedMembers, includeExamples, cancellationToken, version);
-
     [McpServerTool(Name = "get_component_detail")]
-    [Description("Gets comprehensive details about a specific MudBlazor component including parameters, events, methods, and usage information. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    [Description("Gets comprehensive details about a specific MudBlazor component including parameters, events, methods, and usage information. Results use the selected MudBlazor version. Set version to the MudBlazor PackageReference from the project's .csproj, or omit it to use the server default.")]
     public static Task<string> GetComponentDetailAsync(
         IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
+        [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
+        [Description("Include inherited members from base classes (default: false)")]
         bool? includeInheritedMembers = null,
+        [Description("Include code examples (default: true)")]
         bool? includeExamples = null,
         CancellationToken cancellationToken = default,
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
-        => GetComponentDetailCoreAsync(registry, logger, versionContext, componentName, includeInheritedMembers, includeExamples, cancellationToken, version);
+        => GetComponentDetailCoreAsync(registry, logger, componentName, includeInheritedMembers, includeExamples, cancellationToken, version);
 
     private static async Task<string> GetComponentDetailCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Include inherited members from base classes (default: false)")]
@@ -61,8 +46,7 @@ public sealed class ComponentDetailTools
         string? version = null)
     {
         ToolValidation.RequireNonEmpty(componentName, nameof(componentName));
-        ToolValidation.RequireValidVersion(version, nameof(version));
-        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        await using var resolved = await ToolValidation.ResolveIndexerAsync(registry, version, cancellationToken);
         var indexer = resolved.Indexer;
         var responseVersionContext = resolved.VersionContext;
 
@@ -245,37 +229,23 @@ public sealed class ComponentDetailTools
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Gets the parameters for a MudBlazor component.
-    /// </summary>
-    public static Task<string> GetComponentParametersAsync(
-        IComponentIndexer indexer,
-        ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
-        string componentName,
-        string? parameterCategory = null,
-        CancellationToken cancellationToken = default,
-        [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
-        string? version = null)
-        => GetComponentParametersCoreAsync(new SingleIndexerRegistry(indexer, versionContext), logger, versionContext, componentName, parameterCategory, cancellationToken, version);
-
     [McpServerTool(Name = "get_component_parameters")]
-    [Description("Gets all parameters for a specific MudBlazor component, optionally filtered by category. Results are for the configured MudBlazor version. If a component seems missing, verify the --version matches your project's MudBlazor PackageReference in the .csproj file.")]
+    [Description("Gets all parameters for a specific MudBlazor component, optionally filtered by category. Results use the selected MudBlazor version. Set version to the MudBlazor PackageReference from the project's .csproj, or omit it to use the server default.")]
     public static Task<string> GetComponentParametersAsync(
         IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
+        [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
+        [Description("Optional parameter category filter (e.g., 'Behavior', 'Appearance')")]
         string? parameterCategory = null,
         CancellationToken cancellationToken = default,
         [Description("Optional MudBlazor version to serve (e.g., '8.13.0'). Omit to use the server default version.")]
         string? version = null)
-        => GetComponentParametersCoreAsync(registry, logger, versionContext, componentName, parameterCategory, cancellationToken, version);
+        => GetComponentParametersCoreAsync(registry, logger, componentName, parameterCategory, cancellationToken, version);
 
     private static async Task<string> GetComponentParametersCoreAsync(
         IIndexerRegistry registry,
         ILogger<ComponentDetailTools> logger,
-        VersionContext versionContext,
         [Description("The component name (e.g., 'MudButton' or 'Button')")]
         string componentName,
         [Description("Optional parameter category filter (e.g., 'Behavior', 'Appearance')")]
@@ -285,8 +255,7 @@ public sealed class ComponentDetailTools
         string? version = null)
     {
         ToolValidation.RequireNonEmpty(componentName, nameof(componentName));
-        ToolValidation.RequireValidVersion(version, nameof(version));
-        var resolved = await registry.ResolveAsync(version, cancellationToken);
+        await using var resolved = await ToolValidation.ResolveIndexerAsync(registry, version, cancellationToken);
         var indexer = resolved.Indexer;
         var responseVersionContext = resolved.VersionContext;
 

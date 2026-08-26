@@ -9,12 +9,16 @@ namespace MudBlazor.Mcp.Services;
 
 public sealed class VersionCacheManager : IVersionCacheManager
 {
+    private static readonly TimeSpan TouchPersistenceInterval = TimeSpan.FromMinutes(1);
+
     private readonly string _dataPath;
     private readonly int _maxVersions;
     private readonly string _manifestPath;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<VersionCacheManager> _logger;
+    private readonly object _syncRoot = new();
     private VersionManifest _manifest;
+    private DateTimeOffset? _lastSaveAttempt;
 
     public VersionCacheManager(string dataPath, int maxVersions = 3, TimeProvider? timeProvider = null, ILogger<VersionCacheManager>? logger = null)
     {
@@ -29,30 +33,59 @@ public sealed class VersionCacheManager : IVersionCacheManager
         _manifest = LoadManifest();
         PruneExcessVersions();
         ReconcileOrphanedDirectories();
+        CleanupStagingDirectories();
     }
 
     public bool IsVersionCached(string version)
-        => _manifest.Versions.Any(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
+    {
+        lock (_syncRoot)
+        {
+            return _manifest.Versions.Any(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
     public void RegisterVersion(string version)
     {
-        if (IsVersionCached(version)) return;
-        _manifest.Versions.Add(new VersionEntry(version, $"v{version}", _timeProvider.GetUtcNow()));
-        if (!Save())
-            _logger.LogWarning("Failed to persist manifest after registering version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
+        lock (_syncRoot)
+        {
+            if (_manifest.Versions.Any(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            _manifest.Versions.Add(new VersionEntry(version, $"v{version}", _timeProvider.GetUtcNow()));
+            if (!Save())
+                _logger.LogWarning("Failed to persist manifest after registering version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
+        }
     }
 
     public void TouchVersion(string version)
     {
-        var entry = _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
-        if (entry is null) return;
-        entry.LastUsed = _timeProvider.GetUtcNow();
-        if (!Save())
-            _logger.LogWarning("Failed to persist manifest after touching version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
+        lock (_syncRoot)
+        {
+            var entry = _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase));
+            if (entry is null)
+                return;
+
+            var now = _timeProvider.GetUtcNow();
+            entry.LastUsed = now;
+
+            if (_lastSaveAttempt is { } lastSaveAttempt
+                && now - lastSaveAttempt < TouchPersistenceInterval)
+            {
+                return;
+            }
+
+            if (!Save())
+                _logger.LogWarning("Failed to persist manifest after touching version {Version}; in-memory state is correct but {ManifestPath} may be stale", version, _manifestPath);
+        }
     }
 
     public DateTimeOffset? GetLastUsed(string version)
-        => _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase))?.LastUsed;
+    {
+        lock (_syncRoot)
+        {
+            return _manifest.Versions.FirstOrDefault(v => string.Equals(v.Version, version, StringComparison.OrdinalIgnoreCase))?.LastUsed;
+        }
+    }
 
     /// <summary>
     /// Evicts the least-recently-used cached version to make room for a new one.
@@ -61,31 +94,34 @@ public sealed class VersionCacheManager : IVersionCacheManager
     /// </summary>
     public EvictionResult EvictToMakeRoomForNewVersion()
     {
-        if (_manifest.Versions.Count < _maxVersions)
-            return new EvictionResult(EvictionStatus.NotNeeded);
-
-        var oldest = _manifest.Versions.OrderBy(v => v.LastUsed).First();
-
-        // Delete the on-disk data first. Only remove from the manifest if
-        // deletion succeeds (or the directory doesn't exist) so the manifest
-        // stays in sync with what is actually on disk.
-        if (!TryDeleteVersionDirectory(oldest.Version))
-            return new EvictionResult(EvictionStatus.Failed);
-
-        // Directory is gone; update the manifest to match.
-        _manifest.Versions.Remove(oldest);
-        if (!Save())
+        lock (_syncRoot)
         {
-            // The directory is already deleted but we failed to persist the updated
-            // manifest. Report failure so callers know eviction was not fully
-            // persisted to disk.
-            _logger.LogWarning(
-                "Evicted version directory for {Version} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
-                oldest.Version, _manifestPath);
-            return new EvictionResult(EvictionStatus.Failed);
-        }
+            if (_manifest.Versions.Count < _maxVersions)
+                return new EvictionResult(EvictionStatus.NotNeeded);
 
-        return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
+            var oldest = _manifest.Versions.OrderBy(v => v.LastUsed).First();
+
+            // Delete the on-disk data first. Only remove from the manifest if
+            // deletion succeeds (or the directory doesn't exist) so the manifest
+            // stays in sync with what is actually on disk.
+            if (!TryDeleteVersionDirectory(oldest.Version))
+                return new EvictionResult(EvictionStatus.Failed);
+
+            // Directory is gone; update the manifest to match.
+            _manifest.Versions.Remove(oldest);
+            if (!Save())
+            {
+                // The directory is already deleted but we failed to persist the updated
+                // manifest. Report failure so callers know eviction was not fully
+                // persisted to disk.
+                _logger.LogWarning(
+                    "Evicted version directory for {Version} was deleted but manifest save failed; in-memory state is correct but {ManifestPath} may be stale",
+                    oldest.Version, _manifestPath);
+                return new EvictionResult(EvictionStatus.Failed);
+            }
+
+            return new EvictionResult(EvictionStatus.Evicted, oldest.Version);
+        }
     }
 
     /// <summary>
@@ -207,6 +243,40 @@ public sealed class VersionCacheManager : IVersionCacheManager
                 _manifestPath);
     }
 
+    private void CleanupStagingDirectories()
+    {
+        if (!Directory.Exists(_dataPath))
+            return;
+
+        string[] stagingDirectories;
+        try
+        {
+            stagingDirectories = Directory.GetDirectories(_dataPath, ".mudblazor-v*");
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "IO error scanning for stale staging directories in {Path}", _dataPath);
+            return;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Permission error scanning for stale staging directories in {Path}", _dataPath);
+            return;
+        }
+
+        foreach (var stagingDirectory in stagingDirectories)
+        {
+            if (TryDeleteDirectory(stagingDirectory))
+            {
+                _logger.LogWarning("Removed stale MudBlazor repository staging directory {Path}", stagingDirectory);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to remove stale MudBlazor repository staging directory {Path}", stagingDirectory);
+            }
+        }
+    }
+
     /// <summary>
     /// Attempts to delete a version directory, normalizing file attributes first.
     /// Returns <c>true</c> if the directory was deleted or did not exist;
@@ -215,18 +285,23 @@ public sealed class VersionCacheManager : IVersionCacheManager
     private bool TryDeleteVersionDirectory(string version)
     {
         var versionDir = Path.Combine(_dataPath, $"v{version}");
+        return TryDeleteDirectory(versionDir);
+    }
+
+    private bool TryDeleteDirectory(string path)
+    {
         try
         {
-            if (!Directory.Exists(versionDir))
+            if (!Directory.Exists(path))
                 return true;
 
-            var rootDir = new DirectoryInfo(versionDir);
+            var rootDir = new DirectoryInfo(path);
             foreach (var entry in rootDir.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
             {
                 entry.Attributes = FileAttributes.Normal;
             }
             rootDir.Attributes = FileAttributes.Normal;
-            Directory.Delete(versionDir, true);
+            Directory.Delete(path, true);
             return true;
         }
         catch (DirectoryNotFoundException)
@@ -235,12 +310,12 @@ public sealed class VersionCacheManager : IVersionCacheManager
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "IO error deleting version directory {Path}", versionDir);
+            _logger.LogWarning(ex, "IO error deleting directory {Path}", path);
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Permission error deleting version directory {Path}", versionDir);
+            _logger.LogWarning(ex, "Permission error deleting directory {Path}", path);
             return false;
         }
     }
@@ -274,6 +349,8 @@ public sealed class VersionCacheManager : IVersionCacheManager
     private bool Save()
     {
         var tempPath = _manifestPath + ".tmp";
+        _lastSaveAttempt = _timeProvider.GetUtcNow();
+
         try
         {
             Directory.CreateDirectory(_dataPath);
