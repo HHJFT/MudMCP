@@ -14,6 +14,7 @@ public sealed class CategoryMapper
     private readonly ILogger<CategoryMapper> _logger;
     private readonly Dictionary<string, ComponentCategory> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<ComponentCategory> _categories = [];
+    private readonly object _initializeLock = new();
     private bool _isInitialized;
 
     public CategoryMapper(ILogger<CategoryMapper> logger)
@@ -34,15 +35,18 @@ public sealed class CategoryMapper
     {
         ArgumentNullException.ThrowIfNull(repositoryPath);
 
-        if (_isInitialized)
-            return Task.CompletedTask;
+        lock (_initializeLock)
+        {
+            if (_isInitialized)
+                return Task.CompletedTask;
 
-        // Initialize with MudBlazor's known categories
-        // These are derived from MenuService.cs in MudBlazor
-        InitializeKnownCategories();
-        
-        _isInitialized = true;
-        _logger.LogInformation("Category mapper initialized with {Count} categories", _categories.Count);
+            // Initialize with MudBlazor's known categories
+            // These are derived from MenuService.cs in MudBlazor
+            InitializeKnownCategories();
+
+            _isInitialized = true;
+            _logger.LogInformation("Category mapper initialized with {Count} categories", _categories.Count);
+        }
         
         return Task.CompletedTask;
     }

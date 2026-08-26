@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using ModelContextProtocol.AspNetCore;
 using MudBlazor.Mcp.Configuration;
 using MudBlazor.Mcp.Services;
 using MudBlazor.Mcp.Services.Parsing;
@@ -142,7 +143,10 @@ else
     {
         options.ServerInfo = new() { Name = $"MudBlazor Documentation Server (v{mudBlazorVersion})", Version = "1.0.0" };
     })
-    .WithHttpTransport()
+    .WithHttpTransport(options =>
+    {
+        options.SessionMode = HttpServerSessionMode.Stateless;
+    })
     .WithToolsFromAssembly();
 
     var app = builder.Build();
@@ -237,7 +241,7 @@ static async Task BuildIndexAsync(IServiceProvider services)
     try
     {
         logger.LogInformation("Building MudBlazor component index...");
-        var resolved = await registry.ResolveAsync(null);
+        await using var resolved = await registry.ResolveAsync(null);
         logger.LogInformation("Index built successfully with {ComponentCount} components",
             (await resolved.Indexer.GetAllComponentsAsync()).Count);
     }
@@ -291,7 +295,7 @@ public class IndexerHealthCheck : IHealthCheck
     {
         try
         {
-            var resolved = await _registry.ResolveAsync(null, cancellationToken);
+            await using var resolved = await _registry.ResolveAsync(_registry.DefaultVersion, cancellationToken);
             var indexer = resolved.Indexer;
 
             if (!indexer.IsIndexed)
