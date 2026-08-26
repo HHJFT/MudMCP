@@ -48,7 +48,7 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
     public string RepositoryPath => Path.GetFullPath(_versionContext.RepoPath);
 
     /// <inheritdoc />
-    public bool IsAvailable => Directory.Exists(Path.Combine(RepositoryPath, ".git"));
+    public bool IsAvailable => IsRepositoryAtRequestedVersion();
 
     /// <inheritdoc />
     public string? CurrentCommitHash
@@ -86,72 +86,92 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
                 return false;
             }
 
-            // Only evict when adding a truly new version to the cache.
-            if (!_cacheManager.IsVersionCached(_versionContext.Version))
+            if (Directory.Exists(RepositoryPath))
             {
-                var eviction = _cacheManager.EvictToMakeRoomForNewVersion();
-                switch (eviction.Status)
+                _logger.LogWarning(
+                    "Removing invalid or incomplete repository for MudBlazor v{Version} at {Path}",
+                    _versionContext.Version,
+                    RepositoryPath);
+                await DeleteDirectoryAsync(RepositoryPath, cancellationToken).ConfigureAwait(false);
+                TryDeleteEmptyVersionDataDirectory();
+            }
+
+            var dataPath = Path.GetFullPath(_versionContext.DataPath);
+            var stagingPath = Path.Combine(
+                dataPath,
+                $".mudblazor-v{_versionContext.Version}-{Guid.NewGuid():N}");
+
+            try
+            {
+                Directory.CreateDirectory(dataPath);
+
+                _logger.LogInformation("Cloning MudBlazor repository at tag {Tag} to staging path {Path}",
+                    _versionContext.Tag, stagingPath);
+
+                await Task.Run(
+                    () => CloneAndCheckoutVersion(stagingPath),
+                    cancellationToken).ConfigureAwait(false);
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Only evict after the requested tag has been cloned and validated.
+                if (!_cacheManager.IsVersionCached(_versionContext.Version))
                 {
-                    case EvictionStatus.Evicted:
-                        _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
-                        break;
-                    case EvictionStatus.Failed:
-                        _logger.LogError(
-                            "Eviction failed for MudBlazor v{Version}; aborting clone to avoid exceeding MaxCachedVersions",
-                            _versionContext.Version);
-                        throw new InvalidOperationException(
-                            $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
-                    case EvictionStatus.NotNeeded:
-                        _logger.LogDebug(
-                            "No eviction needed when caching MudBlazor v{Version}; within MaxCachedVersions limit",
-                            _versionContext.Version);
-                        break;
-                    default:
-                        _logger.LogError(
-                            "Unhandled eviction status {Status} when preparing to cache MudBlazor v{Version}",
-                            eviction.Status,
-                            _versionContext.Version);
-                        throw new InvalidOperationException(
-                            $"Unhandled eviction status '{eviction.Status}' while preparing to cache MudBlazor version '{_versionContext.Version}'.");
+                    var eviction = _cacheManager.EvictToMakeRoomForNewVersion();
+                    switch (eviction.Status)
+                    {
+                        case EvictionStatus.Evicted:
+                            _logger.LogInformation("Evicted cached version v{Version} (LRU)", eviction.EvictedVersion);
+                            break;
+                        case EvictionStatus.Failed:
+                            _logger.LogError(
+                                "Eviction failed for MudBlazor v{Version}; aborting clone to avoid exceeding MaxCachedVersions",
+                                _versionContext.Version);
+                            throw new InvalidOperationException(
+                                $"Failed to evict an existing cached MudBlazor version; cannot cache new version {_versionContext.Version}.");
+                        case EvictionStatus.NotNeeded:
+                            _logger.LogDebug(
+                                "No eviction needed when caching MudBlazor v{Version}; within MaxCachedVersions limit",
+                                _versionContext.Version);
+                            break;
+                        default:
+                            _logger.LogError(
+                                "Unhandled eviction status {Status} when preparing to cache MudBlazor v{Version}",
+                                eviction.Status,
+                                _versionContext.Version);
+                            throw new InvalidOperationException(
+                                $"Unhandled eviction status '{eviction.Status}' while preparing to cache MudBlazor version '{_versionContext.Version}'.");
+                    }
                 }
-            }
 
-            _logger.LogInformation("Cloning MudBlazor repository at tag {Tag} to {Path}",
-                _versionContext.Tag, RepositoryPath);
-
-            var parentDir = Path.GetDirectoryName(RepositoryPath);
-            if (!string.IsNullOrEmpty(parentDir))
-            {
-                Directory.CreateDirectory(parentDir);
-            }
-
-            await Task.Run(() =>
-            {
-                var cloneOptions = new CloneOptions
+                var parentDir = Path.GetDirectoryName(RepositoryPath);
+                if (!string.IsNullOrEmpty(parentDir))
                 {
-                    RecurseSubmodules = false
-                };
+                    Directory.CreateDirectory(parentDir);
+                }
 
-                Repository.Clone(_options.Repository.Url, RepositoryPath, cloneOptions);
+                Directory.Move(stagingPath, RepositoryPath);
 
-                // Checkout the specific tag
-                using var repo = new Repository(RepositoryPath);
-                var tag = repo.Tags[_versionContext.Tag]
-                    ?? throw new InvalidOperationException(
-                        $"Tag '{_versionContext.Tag}' not found in repository. Check available MudBlazor versions at https://github.com/MudBlazor/MudBlazor/tags");
+                _cacheManager.RegisterVersion(_versionContext.Version);
+                _cacheManager.TouchVersion(_versionContext.Version);
 
-                var targetCommit = tag.PeeledTarget as Commit
-                    ?? throw new InvalidOperationException($"Tag '{_versionContext.Tag}' does not point to a valid commit");
-                Commands.Checkout(repo, targetCommit);
-            }, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Successfully cloned MudBlazor v{Version}. Commit: {Commit}",
+                    _versionContext.Version, CurrentCommitHash);
 
-            _cacheManager.RegisterVersion(_versionContext.Version);
-            _cacheManager.TouchVersion(_versionContext.Version);
+                return true;
+            }
+            catch
+            {
+                await TryDeleteDirectoryAsync(stagingPath).ConfigureAwait(false);
 
-            _logger.LogInformation("Successfully cloned MudBlazor v{Version}. Commit: {Commit}",
-                _versionContext.Version, CurrentCommitHash);
+                if (Directory.Exists(RepositoryPath) && !IsAvailable)
+                {
+                    await TryDeleteDirectoryAsync(RepositoryPath).ConfigureAwait(false);
+                    TryDeleteEmptyVersionDataDirectory();
+                }
 
-            return true;
+                throw;
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -201,6 +221,92 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
         return Path.Combine(RepositoryPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
     }
 
+    private void CloneAndCheckoutVersion(string path)
+    {
+        var cloneOptions = new CloneOptions
+        {
+            RecurseSubmodules = false
+        };
+
+        Repository.Clone(_options.Repository.Url, path, cloneOptions);
+
+        using var repo = new Repository(path);
+        var tag = repo.Tags[_versionContext.Tag]
+            ?? throw new MudBlazorVersionUnavailableException(
+                _versionContext.Version,
+                $"Tag '{_versionContext.Tag}' was not found in the MudBlazor repository.");
+
+        var targetCommit = tag.PeeledTarget as Commit
+            ?? throw new MudBlazorVersionUnavailableException(
+                _versionContext.Version,
+                $"Tag '{_versionContext.Tag}' does not point to a valid commit.");
+
+        Commands.Checkout(repo, targetCommit);
+
+        if (repo.Head.Tip?.Id != targetCommit.Id)
+        {
+            throw new MudBlazorVersionUnavailableException(
+                _versionContext.Version,
+                $"MudBlazor tag '{_versionContext.Tag}' could not be checked out.");
+        }
+    }
+
+    private bool IsRepositoryAtRequestedVersion()
+    {
+        if (!Directory.Exists(Path.Combine(RepositoryPath, ".git")))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var repo = new Repository(RepositoryPath);
+            var targetCommit = repo.Tags[_versionContext.Tag]?.PeeledTarget as Commit;
+            return targetCommit is not null && repo.Head.Tip?.Id == targetCommit.Id;
+        }
+        catch (RepositoryNotFoundException)
+        {
+            return false;
+        }
+        catch (LibGit2SharpException)
+        {
+            return false;
+        }
+    }
+
+    private async Task TryDeleteDirectoryAsync(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            await DeleteDirectoryAsync(path, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Failed to clean up repository directory {Path}", path);
+        }
+    }
+
+    private void TryDeleteEmptyVersionDataDirectory()
+    {
+        try
+        {
+            if (Directory.Exists(_versionContext.VersionDataPath)
+                && !Directory.EnumerateFileSystemEntries(_versionContext.VersionDataPath).Any())
+            {
+                Directory.Delete(_versionContext.VersionDataPath);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Failed to remove empty version data directory {Path}", _versionContext.VersionDataPath);
+        }
+    }
+
     private static async Task DeleteDirectoryAsync(string path, CancellationToken cancellationToken)
     {
         const int maxRetries = 3;
@@ -212,11 +318,12 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             {
                 // Remove read-only attributes
                 var directoryInfo = new DirectoryInfo(path);
-                foreach (var file in directoryInfo.GetFiles("*", SearchOption.AllDirectories))
+                foreach (var entry in directoryInfo.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
                 {
-                    file.Attributes = FileAttributes.Normal;
+                    entry.Attributes = FileAttributes.Normal;
                 }
 
+                directoryInfo.Attributes = FileAttributes.Normal;
                 Directory.Delete(path, true);
                 return;
             }
@@ -261,4 +368,15 @@ public sealed class GitRepositoryService : IGitRepositoryService, IDisposable, I
             _syncLock.Dispose();
         }
     }
+}
+
+public sealed class MudBlazorVersionUnavailableException : InvalidOperationException
+{
+    public MudBlazorVersionUnavailableException(string version, string message)
+        : base(message)
+    {
+        Version = version;
+    }
+
+    public string Version { get; }
 }
