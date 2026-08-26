@@ -180,28 +180,13 @@ curl http://localhost:8000/health
 
 ### 2. List Available Tools
 
-If your client requires MCP sessions (streamable HTTP), initialize once and reuse the `Mcp-Session-Id` header:
-
-```bash
-# Initialize (inspect response headers for Mcp-Session-Id)
-curl -i -X POST http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
-
-# Send initialized notification (replace <SESSION_ID>)
-curl -X POST http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
-  -d '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-```
+HTTP mode is stateless and does not issue an `Mcp-Session-Id`. MCP clients negotiate the protocol automatically. Raw requests using the current protocol include the `MCP-Protocol-Version` header:
 
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
   -d '{"jsonrpc": "2.0", "method": "tools/list", "id": 1}'
 ```
 
@@ -230,7 +215,7 @@ Use startup default version (from `--version`):
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -248,7 +233,7 @@ Override version per request:
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -262,7 +247,7 @@ curl -X POST http://localhost:8000/mcp \
   }'
 ```
 
-The `version` argument is optional on all tools. Omit it to use the server startup version.
+The `version` argument is optional on all tools. Selection precedence is explicit tool argument, HTTP `?version=`, then the startup version. Additional versions are cloned and indexed on first use.
 
 **Expected response:**
 ```json
@@ -273,7 +258,7 @@ The `version` argument is optional on all tools. Omit it to use the server start
     "content": [
       {
         "type": "text",
-        "text": "# MudBlazor Component Categories\n\n## Buttons\n*Interactive button components*\n- **Components:** 5\n\n## Form Inputs & Controls\n..."
+        "text": "# MudBlazor Component Categories\n\n## Buttons\n*Interactive button components*\n- **Components:** 5\n\n## Form Inputs & Controls\n*Components for user input and form handling*\n- **Components:** 18\n\n## Navigation\n*Components for navigation and routing*\n- **Components:** 12\n\n## Layout\n*Components for page structure and layout*\n- **Components:** 10\n..."
       }
     ]
   }
@@ -437,7 +422,7 @@ Use this when you want Claude Desktop to launch the server process itself using 
    }
    ```
 
-   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository, and replace `9.0.0` with your project's MudBlazor package version.
+   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository, and replace `9.0.0` with your project's MudBlazor version.
 
 2. **Restart Claude Desktop**
 

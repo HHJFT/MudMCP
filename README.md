@@ -109,7 +109,11 @@ The `--version` argument is **required** and must match your project's MudBlazor
 dotnet run --project src/MudBlazor.Mcp/MudBlazor.Mcp.csproj -- --version 9.0.0
 ```
 
-This startup version is the **default** used by all tools. You can optionally override it per request by passing a `version` argument to any MCP tool call (for example, `get_component_detail` with `"version": "8.13.0"`).
+This startup version is the fallback used by all tools. Version selection follows this precedence:
+
+1. Explicit tool `version` argument
+2. HTTP endpoint query string (`/mcp?version=...`)
+3. Startup `--version` or `MUDBLAZOR_VERSION`
 
 The server will:
 1. Clone the MudBlazor repository and checkout the matching tag (`v9.0.0`)
@@ -152,22 +156,7 @@ If you want a fixed default version from client config, include it in the URL:
 
 ### HTTP tool call examples (with version)
 
-When calling `/mcp` directly over HTTP, initialize once and reuse the returned `Mcp-Session-Id` header.
-
-```bash
-# 1) Initialize and capture the Mcp-Session-Id response header
-curl -i -X POST http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
-
-# 2) Mark session initialized (replace <SESSION_ID>)
-curl -X POST http://localhost:8000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
-  -d '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-```
+HTTP mode is explicitly stateless, so clients do not need an `Mcp-Session-Id`. MCP clients negotiate the protocol automatically. Raw requests using the current protocol include the `MCP-Protocol-Version` header.
 
 Use startup default version (from `--version`):
 
@@ -175,8 +164,8 @@ Use startup default version (from `--version`):
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton"}}}'
+  -H "MCP-Protocol-Version: 2025-11-25" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton"}}}'
 ```
 
 Override per request with explicit version:
@@ -185,8 +174,8 @@ Override per request with explicit version:
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <SESSION_ID>" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton","version":"9.0.0"}}}'
+  -H "MCP-Protocol-Version: 2025-11-25" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_component_detail","arguments":{"componentName":"MudButton","version":"8.13.0"}}}'
 ```
 
 ---
@@ -292,7 +281,7 @@ docker compose down -v
 
 ### Version Caching
 
-The server caches up to **3 MudBlazor versions** simultaneously. Each version gets its own git clone and serialized index:
+The server caches up to **3 MudBlazor versions** simultaneously in memory and on disk. Each version gets its own git clone and serialized index:
 
 ```
 data/
@@ -305,7 +294,7 @@ data/
     index.json
 ```
 
-When a 4th version is requested, the least recently used version is evicted automatically. This means you can work on multiple projects with different MudBlazor versions, and you can also switch versions per tool call by passing the optional `version` argument.
+The startup version is indexed when the server starts. Other versions are cloned and indexed lazily on first use, so the first request can take longer. When a 4th version is requested, the least recently used version is evicted automatically. Failed transient builds can be retried; an unpublished version returns an MCP error and does not leave a usable cache entry.
 
 ---
 
@@ -333,7 +322,7 @@ For comprehensive documentation, see the [docs](./docs/) folder:
 | [Configuration](./docs/06-configuration.md) | Configuration options and environment setup |
 | [Testing](./docs/07-testing.md) | Unit testing strategy and examples |
 | [MCP Inspector](./docs/08-mcp-inspector.md) | Testing with MCP Inspector tool |
-| [IDE Integration](./docs/09-ide-integration.md) | VS Code, Visual Studio, and Claude Desktop setup |
+| [IDE Integration](./docs/09-ide-integration.md) | VS Code, Visual Studio, or Claude Desktop setup |
 | [Troubleshooting](./docs/10-troubleshooting.md) | Common issues and solutions |
 | [Changelog](./docs/CHANGELOG.md) | Version history and release notes |
 

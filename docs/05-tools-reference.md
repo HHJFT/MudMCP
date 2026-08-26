@@ -49,9 +49,13 @@ All tools use `snake_case` naming as per MCP conventions:
 
 All 12 tools accept an optional `version` argument (for example, `"version": "8.13.0"`).
 
-- If omitted, the server uses the startup default from `--version` or `MUDBLAZOR_VERSION`.
-- If provided, the call is routed to that specific MudBlazor version.
+- An explicit tool argument has highest precedence.
+- In HTTP mode, `/mcp?version=...` is used when the tool argument is omitted.
+- Otherwise, the server uses the startup default from `--version` or `MUDBLAZOR_VERSION`.
 - Version format must be `X.Y.Z` or prerelease (for example, `9.0.0-preview.1`).
+- Additional versions are cloned and indexed lazily on first use.
+- The in-memory and on-disk caches are bounded by `MudBlazor:Repository:MaxCachedVersions` (default: 3) with LRU eviction.
+- A valid version string with no published MudBlazor tag returns an MCP error and may be retried later.
 
 Parameter tables below focus on tool-specific arguments and do not repeat this shared `version` argument each time.
 
@@ -101,7 +105,7 @@ Lists all available MudBlazor components with optional filtering.
 - **MudFab**: Floating action button
   - Parameters: 15, Events: 1, Examples: 5
 - **MudIconButton**: Button with icon only
-  - Parameters: 18, Events: 1, Examples: 6
+  - Parameters: 18, Events: 0, Examples: 6
 - **MudToggleIconButton**: Toggle between two icons
   - Parameters: 14, Events: 2, Examples: 3
 
@@ -156,7 +160,6 @@ Lists all component categories with descriptions and component counts.
 - **Components:** 10
 
 ...
-
 ---
 *Use `list_components` with a category filter to see components in a specific category.*
 ```
@@ -424,13 +427,11 @@ A date picker component for selecting dates.
 
 **Category:** Pickers
 
-A date range picker for selecting start and end dates.
+A date range picker for selecting dates.
 
 ---
 
 ## MudTimePicker
-
-**Category:** Pickers
 
 A time picker component (related to date selection).
 
