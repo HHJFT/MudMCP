@@ -58,6 +58,25 @@ public class VersionCacheManagerTests : IDisposable
     }
 
     [Fact]
+    public void TouchVersion_DebouncesManifestPersistence()
+    {
+        _manager.RegisterVersion("9.0.0");
+        var manifestPath = Path.Combine(_testDataPath, "versions.json");
+        var initiallyPersisted = ReadPersistedLastUsed(manifestPath);
+
+        _timeProvider.Advance(TimeSpan.FromSeconds(30));
+        _manager.TouchVersion("9.0.0");
+
+        Assert.Equal(_timeProvider.GetUtcNow(), _manager.GetLastUsed("9.0.0"));
+        Assert.Equal(initiallyPersisted, ReadPersistedLastUsed(manifestPath));
+
+        _timeProvider.Advance(TimeSpan.FromSeconds(31));
+        _manager.TouchVersion("9.0.0");
+
+        Assert.Equal(_timeProvider.GetUtcNow(), ReadPersistedLastUsed(manifestPath));
+    }
+
+    [Fact]
     public void EvictToMakeRoomForNewVersion_RemovesOldestWhenAtCapacity()
     {
         _manager.RegisterVersion("7.0.0");
@@ -221,11 +240,32 @@ public class VersionCacheManagerTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(_testDataPath, "v3.0.0")));
     }
 
+    [Fact]
+    public void Constructor_RemovesInterruptedCloneStagingDirectories()
+    {
+        var stagingPath = Path.Combine(_testDataPath, ".mudblazor-v9.0.0-interrupted");
+        Directory.CreateDirectory(stagingPath);
+        File.WriteAllText(Path.Combine(stagingPath, "partial-clone"), "incomplete");
+
+        _ = new VersionCacheManager(_testDataPath, maxVersions: 3, timeProvider: _timeProvider);
+
+        Assert.False(Directory.Exists(stagingPath));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDataPath))
         {
             Directory.Delete(_testDataPath, true);
         }
+    }
+
+    private static DateTimeOffset ReadPersistedLastUsed(string manifestPath)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+        return document.RootElement
+            .GetProperty("Versions")[0]
+            .GetProperty("LastUsed")
+            .GetDateTimeOffset();
     }
 }
