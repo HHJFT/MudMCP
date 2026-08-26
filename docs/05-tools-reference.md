@@ -105,7 +105,7 @@ Lists all available MudBlazor components with optional filtering.
 - **MudFab**: Floating action button
   - Parameters: 15, Events: 1, Examples: 5
 - **MudIconButton**: Button with icon only
-  - Parameters: 18, Events: 0, Examples: 6
+  - Parameters: 18, Events: 1, Examples: 6
 - **MudToggleIconButton**: Toggle between two icons
   - Parameters: 14, Events: 2, Examples: 3
 
@@ -160,6 +160,7 @@ Lists all component categories with descriptions and component counts.
 - **Components:** 10
 
 ...
+
 ---
 *Use `list_components` with a category filter to see components in a specific category.*
 ```
@@ -427,11 +428,13 @@ A date picker component for selecting dates.
 
 **Category:** Pickers
 
-A date range picker for selecting dates.
+A date range picker for selecting start and end dates.
 
 ---
 
 ## MudTimePicker
+
+**Category:** Pickers
 
 A time picker component (related to date selection).
 

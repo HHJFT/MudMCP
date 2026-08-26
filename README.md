@@ -322,7 +322,7 @@ For comprehensive documentation, see the [docs](./docs/) folder:
 | [Configuration](./docs/06-configuration.md) | Configuration options and environment setup |
 | [Testing](./docs/07-testing.md) | Unit testing strategy and examples |
 | [MCP Inspector](./docs/08-mcp-inspector.md) | Testing with MCP Inspector tool |
-| [IDE Integration](./docs/09-ide-integration.md) | VS Code, Visual Studio, or Claude Desktop setup |
+| [IDE Integration](./docs/09-ide-integration.md) | VS Code, Visual Studio, and Claude Desktop setup |
 | [Troubleshooting](./docs/10-troubleshooting.md) | Common issues and solutions |
 | [Changelog](./docs/CHANGELOG.md) | Version history and release notes |
 

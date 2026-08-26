@@ -258,7 +258,7 @@ The `version` argument is optional on all tools. Selection precedence is explici
     "content": [
       {
         "type": "text",
-        "text": "# MudBlazor Component Categories\n\n## Buttons\n*Interactive button components*\n- **Components:** 5\n\n## Form Inputs & Controls\n*Components for user input and form handling*\n- **Components:** 18\n\n## Navigation\n*Components for navigation and routing*\n- **Components:** 12\n\n## Layout\n*Components for page structure and layout*\n- **Components:** 10\n..."
+        "text": "# MudBlazor Component Categories\n\n## Buttons\n*Interactive button components*\n- **Components:** 5\n\n## Form Inputs & Controls\n..."
       }
     ]
   }
@@ -422,7 +422,7 @@ Use this when you want Claude Desktop to launch the server process itself using 
    }
    ```
 
-   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository, and replace `9.0.0` with your project's MudBlazor version.
+   Replace `C:\\path\\to\\MudBlazor.Mcp` with the actual path to your cloned repository, and replace `9.0.0` with your project's MudBlazor package version.
 
 2. **Restart Claude Desktop**
 

@@ -157,7 +157,7 @@ _TeamCity*
 .axoCover/*
 !.axoCover/settings.json
 
-# Coverlet is a Code Coverage Tool
+# Coverlet is a free, cross platform Code Coverage Tool
 coverage*.json
 coverage*.xml
 coverage*.info
@@ -203,10 +203,24 @@ publish/
 *.pubxml
 *.publishproj
 
-# Microsoft Azure Web App publish settings. Comment the next line to ignore
-# sensitive information contained in these scripts
-# (https://github.com/github/gitignore/pull/3953)
-#*.azurePubxml
+# Microsoft Azure Web App publish settings. Comment the next line if you want to
+# checkin your Azure Web App publish settings, but sensitive information contained
+# in these scripts will be unencrypted
+PublishScripts/
+
+# NuGet Packages
+*.nupkg
+# NuGet Symbol Packages
+*.snupkg
+# The packages folder can be ignored because of Package Restore
+**/[Pp]ackages/*
+# except build/, which is used as an MSBuild target.
+!**/[Pp]ackages/build/
+# Uncomment if necessary however generally it will be regenerated when needed
+#!**/[Pp]ackages/repositories.config
+# NuGet v3's project.json files produces more ignorable files
+*.nuget.props
+*.nuget.targets
 
 # Microsoft Azure Build Output
 csx/
@@ -296,10 +310,10 @@ node_modules/
 # Visual Studio 6 auto-generated workspace file (contains which files were open etc.)
 *.vbw
 
-# Visual Studio 6 auto-generated project file (contains which files to include in project)
+# Visual Studio 6 auto-generated project file (contains which files were open etc.)
 *.vbp
 
-# Visual Studio 6 workspace and project file (contains which files to include in project)
+# Visual Studio 6 workspace and project file (working project files containing files to include in project)
 *.dsw
 *.dsp
 
@@ -376,7 +390,7 @@ healthchecksdb
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 
-# Ionide (cross platform F# VS Code)
+# Ionide (cross platform F# VS Code tools) working folder
 **/.ionide/
 
 # Fody - auto-generated XML schema
