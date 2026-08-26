@@ -40,7 +40,7 @@ public sealed class VersionedIndexerFactory : IVersionedIndexerFactory
         _loggerFactory = loggerFactory;
     }
 
-    public IComponentIndexer Create(VersionContext versionContext)
+    public VersionedIndexer Create(VersionContext versionContext)
     {
         ArgumentNullException.ThrowIfNull(versionContext);
 
@@ -56,7 +56,7 @@ public sealed class VersionedIndexerFactory : IVersionedIndexerFactory
             versionContext,
             _cacheManager);
 
-        return new ComponentIndexer(
+        var indexer = new ComponentIndexer(
             gitRepositoryService,
             documentationCache,
             _xmlDocParser,
@@ -66,5 +66,7 @@ public sealed class VersionedIndexerFactory : IVersionedIndexerFactory
             versionContext,
             _options,
             logger);
+
+        return new VersionedIndexer(indexer, documentationCache, gitRepositoryService);
     }
 }
